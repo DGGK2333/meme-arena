@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>热梗大乱斗 · 方形擂台</title>
+<link rel="stylesheet" href="src/style.css" />
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">热梗大乱斗<small>MEME BATTLE ROYALE · 方形擂台</small></div>
+    <div class="hud">
+      <div><b id="hFps">60</b><span>FPS</span></div>
+      <div><b id="hTime">0.0s</b><span>时长</span></div>
+      <div><b id="hAlive">0</b><span>存活</span></div>
+      <div><b id="hVer">0</b><span>版本</span></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="speed" id="speed">
+      <button data-s="0.5">0.5x</button>
+      <button data-s="1" class="on">1x</button>
+      <button data-s="2">2x</button>
+      <button data-s="3">3x</button>
+    </div>
+    <button id="btnCamera" class="ghost">🎥 全局视野</button>
+    <button id="btnSound" class="ghost">🔊 音效</button>
+    <button id="btnPause" class="ghost">暂停</button>
+    <button id="btnReset" class="primary">重新开战</button>
+  </header>
+
+  <main>
+    <div id="wrap">
+      <canvas id="cv"></canvas>
+      <div id="overlay"></div>
+      <div id="tip">按住擂台推挤角色 · 双击角色跟随 · C 切换视角 · +/- 缩放 · 1-9 跟随 · 空格暂停 · R 重开</div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="card">
+      <h3>参战角色（点击上场 / 下场）</h3>
+      <div class="chips" id="picker"></div>
+    </div>
+    <div class="card">
+      <h3>实时战况</h3>
+      <div class="roster" id="roster"></div>
+    </div>
+    <div class="card">
+      <h3>角色调参（选中角色）</h3>
+      <div class="bg-note" style="margin:0 0 8px">
+        改完立即生效并自动保存在本机（刷新仍在）。改动会重开一局以便看到效果。
+      </div>
+      <div class="opt"><label for="tunePick">调哪个角色</label>
+        <select id="tunePick"></select></div>
+      <div id="tuneFields"></div>
+      <div class="bg-actions">
+        <button id="btnTuneReset" class="ghost">恢复该角色默认</button>
+      </div>
+      <div class="bg-note" id="tuneStatus"></div>
+    </div>
+    <div class="card">
+      <h3>战场设置</h3>
+      <div class="opt"><label>移动模式</label>
+        <select id="optMove">
+          <option value="momentum" selected>碰撞弹跳（默认）</option>
+          <option value="active">主动追击（旧版）</option>
+        </select></div>
+      <div class="opt"><label>摄像机</label>
+        <select id="optCam">
+          <option value="global" selected>全局视野</option>
+          <option value="follow">跟随角色</option>
+        </select></div>
+      <div class="opt" id="camPickRow" style="display:none"><label>跟随谁</label>
+        <select id="optCamTarget"></select></div>
+      <label class="bg-slider" id="camZoomRow" style="display:none">
+        <span>跟随缩放</span><output id="camZoomVal">0.80×</output>
+        <input id="camZoom" type="range" min="0.5" max="3" step="0.05" value="0.8" /></label>
+      <div class="bg-actions" id="camPresetRow" style="display:none">
+        <button data-zoom="0.6" class="ghost cam-preset">0.6× 远景</button>
+        <button data-zoom="0.8" class="ghost cam-preset">0.8× 默认</button>
+        <button data-zoom="1" class="ghost cam-preset">1× 全景</button>
+        <button data-zoom="1.5" class="ghost cam-preset">1.5× 标准</button>
+        <button data-zoom="2.2" class="ghost cam-preset">2.2× 特写</button>
+      </div>
+      <div class="opt" id="camEdgeRow" style="display:none"><label>贴边留白</label>
+        <select id="optCamEdge">
+          <option value="0">紧贴边界（角色贴屏幕边）</option>
+          <option value="40" selected>标准</option>
+          <option value="90">宽松</option>
+          <option value="150">很宽松</option>
+        </select></div>
+      <div class="opt"><label>伤害飘字</label>
+        <select id="optDmgText">
+          <option value="1" selected>开</option>
+          <option value="0">关</option>
+        </select></div>
+      <label class="bg-slider"><span>角色大小</span><output id="dispUnitV">2.00×</output>
+        <input id="dispUnit" type="range" min="0.5" max="4" step="0.05" value="2" /></label>
+      <label class="bg-slider"><span>血条大小</span><output id="dispHpBarV">2.00×</output>
+        <input id="dispHpBar" type="range" min="0.5" max="4" step="0.05" value="2" /></label>
+      <div class="opt"><label>血条内显示血量</label>
+        <select id="dispHpVal">
+          <option value="1" selected>开</option>
+          <option value="0">关</option>
+        </select></div>
+      <div class="opt"><label>缩圈速度</label>
+        <select id="optShrink">
+          <option value="0.75">慢</option>
+          <option value="1" selected>标准</option>
+          <option value="1.5">狂暴缩圈</option>
+        </select></div>
+      <div class="opt"><label>角色智商</label>
+        <select id="optAI">
+          <option value="0.6">憨憨</option>
+          <option value="1" selected>正常</option>
+          <option value="1.45">狡猾</option>
+        </select></div>
+      <div class="opt"><label>伤害倍率</label>
+        <select id="optDmg">
+          <option value="0.7">肉装互殴</option>
+          <option value="1" selected>标准</option>
+          <option value="1.6">玻璃大炮</option>
+        </select></div>
+      <div class="opt"><label>自动重开</label>
+        <select id="optAuto"><option value="1" selected>开</option><option value="0">关</option></select></div>
+      <div class="opt"><label for="optBg">战场主题</label>
+        <select id="optBg">
+          <option value="neon">霓虹擂台</option>
+          <option value="sunset">熔岩黄昏</option>
+          <option value="ocean">深海蓝调</option>
+          <option value="forest">荧光森林</option>
+          <option value="paper">复古纸感</option>
+          <option value="custom">自选图片</option>
+        </select></div>
+      <div class="bg-note" id="bgStatus">换图与各层微调在下方「三层背景」面板里</div>
+    </div>
+
+    <div class="card">
+      <h3>缩圈 / 圈外滤镜</h3>
+      <div class="opt"><label>安全区机制</label>
+        <select id="zEnabled">
+          <option value="1" selected>开（缩圈 + 圈外伤害 + 特效）</option>
+          <option value="0">关（完全关闭，纯擂台混战）</option>
+        </select></div>
+      <div class="bg-note" id="zOffNote" style="display:none">
+        安全区已关闭：不缩圈、没有圈外伤害，圈外滤镜与边界线也一并消失。
+      </div>
+      <div id="zFxGroup">
+      <div class="opt"><label>圈外滤镜</label>
+        <select id="zFxEnabled">
+          <option value="1" selected>开</option>
+          <option value="0">关（圈外不变色）</option>
+        </select></div>
+      <label class="bg-slider"><span>圈外透明度</span><output id="zOpacityV">16%</output>
+        <input id="zOpacity" type="range" min="0" max="0.9" step="0.01" value="0.16" /></label>
+      <label class="bg-slider"><span>圈外主色</span>
+        <input id="zColor" type="color" value="#ff3c50" /></label>
+      <label class="bg-slider"><span>圈外次色</span>
+        <input id="zColor2" type="color" value="#7a0b28" /></label>
+      <div class="opt"><label>由内向外渐变</label>
+        <select id="zGradient">
+          <option value="1" selected>开</option>
+          <option value="0">关（纯色平铺）</option>
+        </select></div>
+      <div class="opt"><label>扫描线</label>
+        <select id="zScan">
+          <option value="1" selected>开</option>
+          <option value="0">关</option>
+        </select></div>
+      <label class="bg-slider"><span>扫描线强度</span><output id="zScanV">30%</output>
+        <input id="zScanOpacity" type="range" min="0" max="1" step="0.01" value="0.30" /></label>
+      <div class="opt"><label>噪点颗粒</label>
+        <select id="zNoise">
+          <option value="1" selected>开</option>
+          <option value="0">关</option>
+        </select></div>
+      <label class="bg-slider"><span>噪点强度</span><output id="zNoiseV">22%</output>
+        <input id="zNoiseOpacity" type="range" min="0" max="1" step="0.01" value="0.22" /></label>
+      <label class="bg-slider"><span>边缘柔化</span><output id="zBlurV">6</output>
+        <input id="zBlurEdges" type="range" min="0" max="80" step="1" value="6" /></label>
+      <label class="bg-slider"><span>脉动强度</span><output id="zPulseV">35%</output>
+        <input id="zPulse" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
+
+      <h3 style="margin-top:12px">安全区边界线</h3>
+      <div class="opt"><label>边界线</label>
+        <select id="zRingEnabled">
+          <option value="1" selected>显示</option>
+          <option value="0">隐藏</option>
+        </select></div>
+      <label class="bg-slider"><span>线宽</span><output id="zRingWidthV">2.5</output>
+        <input id="zRingWidth" type="range" min="0" max="12" step="0.1" value="2.5" /></label>
+      <label class="bg-slider"><span>线透明度</span><output id="zRingOpacityV">78%</output>
+        <input id="zRingOpacity" type="range" min="0" max="1" step="0.01" value="0.78" /></label>
+      <label class="bg-slider"><span>发光</span><output id="zRingGlowV">8</output>
+        <input id="zRingGlow" type="range" min="0" max="40" step="1" value="8" /></label>
+      </div><!-- /zFxGroup -->
+      <div class="bg-note">切换总开关时，这一整组控件的启用状态会自动跟随。</div>
+    </div>
+
+    <div class="card">
+      <h3>三层背景</h3>
+      <div class="bg-note" style="margin:0 0 8px">
+        顺序：<b>外层</b>（擂台之外）→ <b>边框</b>（夹在中间）→ <b>内层</b>（擂台方块）。
+        缩放/偏移用来微调纹理对齐，模糊可以柔化贴图。<br>
+        三层的设置与自选图都会自动保存，刷新后仍在。
+      </div>
+      <div class="layer-tabs" id="layerTabs">
+        <button data-layer="outer" class="on">外层</button>
+        <button data-layer="border">边框</button>
+        <button data-layer="inner">内层</button>
+      </div>
+
+      <!-- 外层 -->
+      <div class="layer-panel" data-layer="outer">
+        <div class="opt"><label>图案</label>
+          <select id="oPattern">
+            <option value="grid">网格</option>
+            <option value="dots">点阵</option>
+            <option value="rings">同心圆</option>
+            <option value="checks">棋盘</option>
+            <option value="diagonal">斜线</option>
+            <option value="cross">十字</option>
+            <option value="none">纯色</option>
+          </select></div>
+        <label class="bg-slider"><span>图案间距</span><output id="oPatScaleV">46</output>
+          <input id="oPatScale" type="range" min="8" max="160" step="2" value="46" /></label>
+        <label class="bg-slider"><span>图案线宽</span><output id="oPatWidthV">1.2</output>
+          <input id="oPatWidth" type="range" min="0.4" max="6" step="0.1" value="1.2" /></label>
+        <label class="bg-slider"><span>暗色遮罩</span><output id="oOverlayV">42%</output>
+          <input id="oOverlay" type="range" min="0" max="0.85" step="0.01" value="0.42" /></label>
+        <label class="bg-slider"><span>透明度</span><output id="oOpacityV">100%</output>
+          <input id="oOpacity" type="range" min="0" max="1" step="0.01" value="1" /></label>
+        <label class="bg-slider"><span>纹理缩放</span><output id="oScaleV">1.00×</output>
+          <input id="oScale" type="range" min="0.2" max="3" step="0.01" value="1" /></label>
+        <label class="bg-slider"><span>水平偏移</span><output id="oOffXV">0</output>
+          <input id="oOffX" type="range" min="-200" max="200" step="1" value="0" /></label>
+        <label class="bg-slider"><span>垂直偏移</span><output id="oOffYV">0</output>
+          <input id="oOffY" type="range" min="-200" max="200" step="1" value="0" /></label>
+        <label class="bg-slider"><span>模糊</span><output id="oBlurV">0</output>
+          <input id="oBlur" type="range" min="0" max="30" step="0.5" value="0" /></label>
+      </div>
+
+      <!-- 边框 -->
+      <div class="layer-panel" data-layer="border" style="display:none">
+        <label class="bg-slider"><span>边框厚度</span><output id="bThickV">26</output>
+          <input id="bThick" type="range" min="0" max="140" step="1" value="26" /></label>
+        <div class="opt"><label>样式</label>
+          <select id="bStyle">
+            <option value="glow">发光</option>
+            <option value="solid">纯色</option>
+            <option value="stripes">斜纹</option>
+            <option value="dashes">虚线</option>
+            <option value="grid">网格</option>
+          </select></div>
+        <label class="bg-slider"><span>发光强度</span><output id="bGlowV">10</output>
+          <input id="bGlow" type="range" min="0" max="60" step="1" value="10" /></label>
+        <label class="bg-slider"><span>呼吸脉动</span><output id="bPulseV">35%</output>
+          <input id="bPulse" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
+        <label class="bg-slider"><span>透明度</span><output id="bOpacityV">100%</output>
+          <input id="bOpacity" type="range" min="0" max="1" step="0.01" value="1" /></label>
+        <label class="bg-slider"><span>纹理缩放</span><output id="bScaleV">1.00×</output>
+          <input id="bScale" type="range" min="0.2" max="3" step="0.01" value="1" /></label>
+        <label class="bg-slider"><span>水平偏移</span><output id="bOffXV">0</output>
+          <input id="bOffX" type="range" min="-200" max="200" step="1" value="0" /></label>
+        <label class="bg-slider"><span>垂直偏移</span><output id="bOffYV">0</output>
+          <input id="bOffY" type="range" min="-200" max="200" step="1" value="0" /></label>
+        <label class="bg-slider"><span>模糊</span><output id="bBlurV">0</output>
+          <input id="bBlur" type="range" min="0" max="30" step="0.5" value="0" /></label>
+      </div>
+
+      <!-- 内层 -->
+      <div class="layer-panel" data-layer="inner" style="display:none">
+        <label class="bg-slider"><span>图片可见度</span><output id="iOpacityV">100%</output>
+          <input id="iOpacity" type="range" min="0" max="1" step="0.01" value="1" /></label>
+        <label class="bg-slider"><span>暗色遮罩</span><output id="iOverlayV">40%</output>
+          <input id="iOverlay" type="range" min="0" max="0.85" step="0.01" value="0.40" /></label>
+        <label class="bg-slider"><span>暗角</span><output id="iVignetteV">42%</output>
+          <input id="iVignette" type="range" min="0" max="0.9" step="0.01" value="0.42" /></label>
+        <label class="bg-slider"><span>纹理缩放</span><output id="iScaleV">1.00×</output>
+          <input id="iScale" type="range" min="0.2" max="3" step="0.01" value="1" /></label>
+        <label class="bg-slider"><span>水平偏移</span><output id="iOffXV">0</output>
+          <input id="iOffX" type="range" min="-200" max="200" step="1" value="0" /></label>
+        <label class="bg-slider"><span>垂直偏移</span><output id="iOffYV">0</output>
+          <input id="iOffY" type="range" min="-200" max="200" step="1" value="0" /></label>
+        <label class="bg-slider"><span>模糊</span><output id="iBlurV">0</output>
+          <input id="iBlur" type="range" min="0" max="30" step="0.5" value="0" /></label>
+      </div>
+      <div class="bg-actions">
+        <button id="btnLayerUpload" class="ghost">给该层换图</button>
+        <button id="btnLayerReset" class="ghost">该层恢复默认</button>
+        <input id="layerFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+      </div>
+    </div>
+    <div class="card">
+      <h3>战报</h3>
+      <div class="log" id="log"></div>
+    </div>
+    <div class="card">
+      <h3>玩法说明</h3>
+      <div class="hint">
+        角色带着<span class="k">初始动量</span>冲进擂台，不再主动走位。<br>
+        撞墙完全反弹；角色互撞按<span class="k">完全非弹性碰撞</span>交换动量，重的推得动轻的。<br>
+        碰撞时按冲击速度结算<span class="k">接触伤害</span>：有的角色很扎人，有的撞了不痛。<br>
+        擂台外有红色毒圈持续掉血，安全区不断缩小，逼所有人往中间挤。<br>
+        最后存活者获胜；超时则按「血量 + 击杀」判定冠军。<br>
+        背景是<b>三层</b>：擂台方块（内层）、中间一圈边框、擂台之外还有一层，所以拉远镜头也不会露黑边。<br>
+        <b>移动模式</b>可在上方切回旧版「主动追击」做对比。
+      </div>
+    </div>
+    <div class="card">
+      <h3>改角色 / 换素材</h3>
+      <div class="hint">
+        角色数值与技能都在 <b>data/characters.js</b>，改完刷新即可。<br>
+        贴图 / 序列帧 / 音效放进 <b>assets/characters/&lt;角色id&gt;/</b>，
+        然后跑一次 <b>node tools/scan-assets.js</b>。<br>
+        推荐用序列帧 <b>idle_01.png、idle_02.png…</b>（由游戏驱动，可控可测），<br>
+        也可以直接放 <b>idle.gif</b> 或单张 <b>idle.png</b>。<br>
+        详细约定见 <b>assets/characters/README.md</b>。
+      </div>
+    </div>
+  </aside>
+  <footer>纯前端 · Canvas 2D 自研物理 · 无外部依赖 · 双击 index.html 即可开玩</footer>
+</div>
+
+<!-- ============ 脚本加载顺序：先配置数据，再引擎，最后界面 ============ -->
+<script src="data/config.js"></script>
+<script src="data/characters.js"></script>
+<script src="assets/manifest.js"></script>
+<script src="src/utils.js"></script>
+<script src="src/assets.js"></script>
+<!-- settings.js 必须排在 background.js 之前：后者在 IIFE 里就捕获了 config 引用，
+     存档要先合并进 CONFIG，否则恢复出来的值不会被它读到。 -->
+<script src="src/settings.js"></script>
+<script src="src/background.js"></script>
+<script src="src/engine.js"></script>
+<script src="src/render.js"></script>
+<script src="src/ui.js"></script>
+</body>
+</html>
+
